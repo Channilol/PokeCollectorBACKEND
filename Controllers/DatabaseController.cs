@@ -10,6 +10,7 @@ using System.Web.Helpers;
 using System.Web.Http.Results;
 using System.Web.Mvc;
 using System.Web.Security;
+using Microsoft.Ajax.Utilities;
 using PokeCollector.Models;
 
 namespace PokeCollector.Controllers
@@ -47,7 +48,6 @@ namespace PokeCollector.Controllers
                     {
                         var newCart = new Cart();
                         newCart.UserId = user.UserId;
-                        newCart.OrderId = 2;
                         newCart.State = "NON ORDINATO";
                         db.Cart.Add(newCart);
                         db.SaveChanges();
@@ -82,6 +82,15 @@ namespace PokeCollector.Controllers
                 }).FirstOrDefault();
                 if (user != null)
                 {
+                    var checkCart = db.Cart.Where(c => c.UserId == user.UserId && c.State == "NON ORDINATO").FirstOrDefault();
+                    if (checkCart == null)
+                    {
+                        var newCart = new Cart();
+                        newCart.UserId = user.UserId;
+                        newCart.State = "NON ORDINATO";
+                        db.Cart.Add(newCart);
+                        db.SaveChanges();
+                    }
                     return Json(user, JsonRequestBehavior.AllowGet);
                 }
                 else
@@ -124,13 +133,146 @@ namespace PokeCollector.Controllers
         {
             if(userId > 0)
             {
-                var checkCart = db.Cart.Where(c => c.UserId == userId && c.State == "NON ORDINATO").FirstOrDefault();
+                var checkCart = db.Cart.Where(c => c.UserId == userId && c.State == "NON ORDINATO").Select(c => new
+                {
+                    CartId = c.CartId,
+                    UserId = c.UserId,
+                    State = c.State
+                }).FirstOrDefault();
                 return Json(checkCart, JsonRequestBehavior.AllowGet);
             }
             else
             {
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "L'utente non esiste");
             }
+        }
+
+        public ActionResult GetCartItems(int userId)
+        { 
+            if(userId > 0)
+            {
+                var cart = db.Cart.Where(c => c.UserId == userId && c.State == "NON ORDINATO").Select(c => new
+                {
+                    CartId = c.CartId,
+                    UserId = c.UserId,
+                    State = c.State
+                }).FirstOrDefault();
+                if (cart != null)
+                {
+                    var cartItems = db.Orders.Join(db.Products,
+                        o => o.ProductId,
+                        p => p.ProductId,
+                        (o, p) => new
+                        {
+                            OrderId = o.OrderId,
+                            ProductId = o.ProductId,
+                            Quantity = o.Quantity,
+                            Price = o.Price,
+                            CartId = o.CartId,
+                            Name = p.Name,
+                            PricePerUnit = p.PricePerUnit,
+                            Language = p.Language,
+                            Image = p.Image,
+                        }).Where(or => or.CartId == cart.CartId).ToList();
+                    return Json(cartItems, JsonRequestBehavior.AllowGet);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "L'utente non esiste");
+            }
+        }
+
+        public ActionResult GetTotalPrice(int userId)
+        {
+            if (userId > 0)
+            {
+                var lastCart = db.Cart.Where(c => c.UserId == userId && c.State == "NON ORDINATO").FirstOrDefault();
+                if (lastCart != null)
+                {
+                    var order = db.Orders.Where(o => o.CartId == lastCart.CartId).FirstOrDefault();
+                    if (order != null)
+                    {
+                        var totalPrice = db.Orders.Where(o => o.CartId == lastCart.CartId).Sum(o => o.Price);
+                        return Json(totalPrice, JsonRequestBehavior.AllowGet);
+                    }
+                }
+                return null;
+            }
+            else
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "L'utente non esiste");
+            }
+        }
+
+        // MANAGEMENT ORDINI
+
+        [HttpPost]
+        public ActionResult AddOrder(Orders order)
+        {
+            if (order != null)
+            {
+                if (ModelState.IsValid)
+                {
+                    var cartItems = db.Orders.Select(o => new
+                    {
+                        OrderId = o.OrderId,
+                        ProductId = o.ProductId,
+                        Quantity = o.Quantity,
+                        Price = o.Price,
+                        CartId = o.CartId,
+                    });
+                    bool isProductInCart = cartItems.Any(p => p.ProductId == order.ProductId && p.CartId == order.CartId);
+
+                    if (isProductInCart)
+                    {
+                        var existingOrder = db.Orders.Where(o => o.ProductId == order.ProductId).FirstOrDefault();
+
+                        existingOrder.Quantity = order.Quantity;
+                        existingOrder.Price = order.Price;
+
+                        db.SaveChanges();
+                    }
+                    else
+                    {
+                        db.Orders.Add(order);
+                        db.SaveChanges();
+                    }
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "Ordine registrato con successo");
+                }
+                else
+                {
+                    return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel model state");
+                }
+            }
+            else
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Dati per la registrazione mancanti");
+            }
+        }
+
+        [HttpDelete]
+        public ActionResult DeleteOrder(int orderId)
+        {
+            if (orderId > 0)
+            {
+                var orderToRemove = db.Orders.Where(o => o.OrderId == orderId).FirstOrDefault();
+                if (orderToRemove != null)
+                {
+                    db.Orders.Remove(orderToRemove);
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "Ordine eliminato con successo");
+                }
+                else
+                {
+                    return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Ordine non esistente");
+                }
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Dati ordine errati");
         }
 
         // MANAGAMENT PRODOTTI

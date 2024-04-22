@@ -8,12 +8,6 @@ namespace PokeCollector.Models
 
     public partial class Orders
     {
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors")]
-        public Orders()
-        {
-            Cart = new HashSet<Cart>();
-        }
-
         [Key]
         public int OrderId { get; set; }
 
@@ -25,8 +19,7 @@ namespace PokeCollector.Models
 
         public int CartId { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<Cart> Cart { get; set; }
+        public virtual Cart Cart { get; set; }
 
         public virtual Products Products { get; set; }
     }

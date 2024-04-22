@@ -22,9 +22,9 @@ namespace PokeCollector.Models
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Orders>()
-                .HasMany(e => e.Cart)
-                .WithRequired(e => e.Orders)
+            modelBuilder.Entity<Cart>()
+                .HasMany(e => e.Orders)
+                .WithRequired(e => e.Cart)
                 .WillCascadeOnDelete(false);
 
             modelBuilder.Entity<ProductCategories>()
