@@ -6,6 +6,7 @@ using System.Data.Entity;
 using System.Linq;
 using System.Net;
 using System.Web;
+using System.Web.Helpers;
 using System.Web.Http.Results;
 using System.Web.Mvc;
 using System.Web.Security;
@@ -22,58 +23,35 @@ namespace PokeCollector.Controllers
             return View();
         }
 
-        public ActionResult GetAllProducts()
-        {
-            var products = db.Products
-                            .Join(db.ProductCategories,
-                                  p => p.CategoryId,
-                                  c => c.CategoryId,
-                                  (p, c) => new
-                                  {
-                                      ProductId = p.ProductId,
-                                      Name = p.Name,
-                                      PricePerUnit = p.PricePerUnit,
-                                      CategoryId = p.CategoryId,
-                                      Discount = p.Discount,
-                                      Language = p.Language,
-                                      Image = p.Image,
-                                      Type = c.Type,
-                                  })
-                            .ToList();
-            return Json(products, JsonRequestBehavior.AllowGet);
-        }
-
-
-        public ActionResult GetProduct(int productId)
-        {
-            if (productId > 0)
-            {
-                var product = db.Products.Where(p => p.ProductId == productId).Select(p => new
-                {
-                    ProductId = p.ProductId,
-                    Name = p.Name,
-                    PricePerUnit = p.PricePerUnit,
-                    CategoryId = p.CategoryId,
-                    Discount = p.Discount,
-                    Language = p.Language,
-                    Image = p.Image
-                }).FirstOrDefault();
-                return Json(product, JsonRequestBehavior.AllowGet);
-            }
-            else
-            {
-                return Json(new { message = "Inserisci un ProductId valido" }, JsonRequestBehavior.AllowGet);
-            }
-        }
+        //MANAGEMENT USER
 
         [HttpGet]
         public ActionResult GetUser(string email, string password)
         {
             if (email != "")
             {
-                var user = db.Users.Where(u => u.Email == email && u.Password == password).FirstOrDefault();
+                var user = db.Users.Where(u => u.Email == email && u.Password == password).Select(u => new
+                {
+                    UserId = u.UserId,
+                    Email = u.Email,
+                    Password = u.Password,
+                    Name = u.Name,
+                    Surname = u.Surname,
+                    Role = u.Role,
+                    Image = u.Image
+                }).FirstOrDefault();
                 if (user != null)
                 {
+                    var checkCart = db.Cart.Where(c => c.UserId == user.UserId && c.State == "NON ORDINATO").FirstOrDefault();
+                    if (checkCart == null)
+                    {
+                        var newCart = new Cart();
+                        newCart.UserId = user.UserId;
+                        newCart.OrderId = 2;
+                        newCart.State = "NON ORDINATO";
+                        db.Cart.Add(newCart);
+                        db.SaveChanges();
+                    }
                     return Json(user, JsonRequestBehavior.AllowGet);
                 }
                 else
@@ -88,11 +66,20 @@ namespace PokeCollector.Controllers
         }
 
         [HttpGet]
-        public ActionResult CheckUser(int id)
+        public ActionResult CheckUser(int id, string password)
         {
             if (id > 0)
             {
-                var user = db.Users.Where(u => u.UserId == id).FirstOrDefault();
+                var user = db.Users.Where(u => u.UserId == id && u.Password == password).Select(u => new
+                {
+                    UserId = u.UserId,
+                    Email = u.Email,
+                    Password = u.Password,
+                    Name = u.Name,
+                    Surname = u.Surname,
+                    Role = u.Role,
+                    Image = u.Image
+                }).FirstOrDefault();
                 if (user != null)
                 {
                     return Json(user, JsonRequestBehavior.AllowGet);
@@ -129,6 +116,91 @@ namespace PokeCollector.Controllers
             {
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Dati per la registrazione mancanti");
             }
+        }
+
+        // MANAGEMERT CARRELLO
+
+        public ActionResult CheckCart(int userId)
+        {
+            if(userId > 0)
+            {
+                var checkCart = db.Cart.Where(c => c.UserId == userId && c.State == "NON ORDINATO").FirstOrDefault();
+                return Json(checkCart, JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "L'utente non esiste");
+            }
+        }
+
+        // MANAGAMENT PRODOTTI
+
+        public ActionResult GetAllProducts()
+        {
+            var products = db.Products
+                            .Join(db.ProductCategories,
+                                  p => p.CategoryId,
+                                  c => c.CategoryId,
+                                  (p, c) => new
+                                  {
+                                      ProductId = p.ProductId,
+                                      Name = p.Name,
+                                      PricePerUnit = p.PricePerUnit,
+                                      CategoryId = p.CategoryId,
+                                      Discount = p.Discount,
+                                      Language = p.Language,
+                                      Image = p.Image,
+                                      Type = c.Type,
+                                  })
+                            .Where(p => p.PricePerUnit > 0)
+                            .ToList();
+            return Json(products, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult GetProduct(int productId)
+        {
+            if (productId > 0)
+            {
+                var product = db.Products.Where(p => p.ProductId == productId).Select(p => new
+                {
+                    ProductId = p.ProductId,
+                    Name = p.Name,
+                    PricePerUnit = p.PricePerUnit,
+                    CategoryId = p.CategoryId,
+                    Discount = p.Discount,
+                    Language = p.Language,
+                    Image = p.Image
+                }).FirstOrDefault();
+                return Json(product, JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                return Json(new { message = "Inserisci un ProductId valido" }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        public ActionResult GetNews()
+        {
+            var products = db.Products
+                .Join(db.ProductCategories,
+                      p => p.CategoryId,
+                      c => c.CategoryId,
+                      (p, c) => new
+                      {
+                          ProductId = p.ProductId,
+                          Name = p.Name,
+                          PricePerUnit = p.PricePerUnit,
+                          CategoryId = p.CategoryId,
+                          Discount = p.Discount,
+                          Language = p.Language,
+                          Image = p.Image,
+                          Type = c.Type,
+                      })
+                .OrderByDescending(p => p.ProductId)
+                .Where(p => p.PricePerUnit > 0)
+                .Take(5)
+                .ToList();
+            return Json(products, JsonRequestBehavior.AllowGet);
         }
 
         [HttpPost]
@@ -212,8 +284,6 @@ namespace PokeCollector.Controllers
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Il prodotto non può essere nullo");
             }
         }
-
-
 
         [HttpDelete]
         public ActionResult DeleteProduct(int id)
