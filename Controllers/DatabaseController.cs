@@ -10,6 +10,7 @@ using System.Web.Helpers;
 using System.Web.Http.Results;
 using System.Web.Mvc;
 using System.Web.Security;
+using System.Web.UI.WebControls.WebParts;
 using Microsoft.Ajax.Utilities;
 using PokeCollector.Models;
 
@@ -129,6 +130,85 @@ namespace PokeCollector.Controllers
             {
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Dati per la registrazione mancanti");
             }
+        }
+
+        public ActionResult CheckWishList(int userId, int productId)
+        {
+            if (userId > 0 && productId > 0)
+            {
+                var wishProduct = db.WishList.Where(w => w.UserId == userId && w.ProductId == productId).FirstOrDefault();
+
+                if (wishProduct != null)
+                {
+                    return Json(1, JsonRequestBehavior.AllowGet);
+                }
+                return Json(0, JsonRequestBehavior.AllowGet);
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel userId/productId");
+        }
+
+        public ActionResult GetWishlist(int userId)
+        {
+            if (userId > 0)
+            {
+                var wishlist = db.WishList.Join(db.Products,
+                    w => w.ProductId,
+                    p => p.ProductId,
+                    (w, p) => new
+                    {
+                        WishId = w.WishId,
+                        UserId = w.UserId,
+                        ProductId = p.ProductId,
+                        Name = p.Name,
+                        PricePerUnit = p.PricePerUnit,
+                        CategoryId = p.CategoryId,
+                        Discount = p.Discount,
+                        Language = p.Language,
+                        Image = p.Image,
+                        Disponibilita = p.Disponibilita,
+                        Descrizione = p.Descrizione
+                    }).Where(w => w.UserId == userId).ToList();
+                if (wishlist != null)
+                {
+                    return Json(wishlist, JsonRequestBehavior.AllowGet);
+                }
+                return Json(0, JsonRequestBehavior.AllowGet);
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nello userId");
+        }
+
+        public ActionResult AddToWishList(int userId, int productId)
+        {
+            if (userId > 0 && productId > 0)
+            {
+                WishList newWish = new WishList();
+                newWish.UserId = userId;
+                newWish.ProductId = productId;
+
+                db.WishList.Add(newWish);
+                db.SaveChanges();
+                return new HttpStatusCodeResult(HttpStatusCode.OK, "WishList aggiornata con successo");
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel userId/productId");
+        }
+
+        [HttpDelete]
+        public ActionResult RemoveFromWishList(int userId, int productId)
+        {
+            if (userId > 0 && productId > 0)
+            {
+                var wishProduct = db.WishList.Where(w => w.UserId == userId && w.ProductId == productId).FirstOrDefault();
+
+                if (wishProduct != null)
+                {
+                    db.WishList.Remove(wishProduct);
+                    db.SaveChanges();
+
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "WishList aggiornata con successo");
+                }
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non esiste questo prodotto nella wishlist");
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel userId/productId");
         }
 
         // MANAGEMENT USER SHIPPING INFO
@@ -272,10 +352,16 @@ namespace PokeCollector.Controllers
         public ActionResult ChangeCart(Cart cart)
         {
             var existingCart = db.Cart.Where(c => c.CartId == cart.CartId).FirstOrDefault();
-            if (existingCart != null)
+            var cartSum = db.Orders.Where(o => o.CartId == cart.CartId).Sum(o => o.Price);
+            if (cartSum < 90)
             {
-                existingCart.State = cart.State;
-                existingCart.TotalPrice = cart.TotalPrice;
+                cartSum += 10;
+            }
+
+            if (existingCart != null && cartSum > 0)
+            {
+                existingCart.State = "IN ATTESA";
+                existingCart.TotalPrice = cartSum;
                 existingCart.Date = DateTime.Now;
 
                 try
@@ -461,6 +547,56 @@ namespace PokeCollector.Controllers
             {
                 return Json(new { message = "Inserisci un ProductId valido" }, JsonRequestBehavior.AllowGet);
             }
+        }
+
+        public ActionResult GetProductByLan(string type)
+        {
+            if (type != null)
+            {
+                var products = db.Products.Where(p => p.Language == type).Select(p => new
+                {
+                    ProductId = p.ProductId,
+                    Name = p.Name,
+                    PricePerUnit = p.PricePerUnit,
+                    CategoryId = p.CategoryId,
+                    Discount = p.Discount,
+                    Language = p.Language,
+                    Image = p.Image,
+                    Disponibilita = p.Disponibilita,
+                    Descrizione = p.Descrizione
+                }).ToList();
+                if (products.Any())
+                {
+                    return Json(products, JsonRequestBehavior.AllowGet);
+                }
+                return Json(0, JsonRequestBehavior.AllowGet);
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Lingua non esistente nel database");
+        }
+
+        public ActionResult GetProductBySearch(string input)
+        {
+            if(input != null && input != "")
+            {
+                var products = db.Products.Where(p => p.Name.Contains(input) && p.PricePerUnit > 0).Select(p => new
+                {
+                    ProductId = p.ProductId,
+                    Name = p.Name,
+                    PricePerUnit = p.PricePerUnit,
+                    CategoryId = p.CategoryId,
+                    Discount = p.Discount,
+                    Language = p.Language,
+                    Image = p.Image,
+                    Disponibilita = p.Disponibilita,
+                    Descrizione = p.Descrizione
+                }).ToList();
+                if (products.Any())
+                {
+                    return Json(products, JsonRequestBehavior.AllowGet);
+                }
+                return Json(0, JsonRequestBehavior.AllowGet);
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "input errato");
         }
 
         public ActionResult GetNews()
