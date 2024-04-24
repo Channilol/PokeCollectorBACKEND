@@ -13,6 +13,7 @@ namespace PokeCollector.Models
         {
             Cart = new HashSet<Cart>();
             FavouritesList = new HashSet<FavouritesList>();
+            UserShipmentInfo = new HashSet<UserShipmentInfo>();
             WishList = new HashSet<WishList>();
         }
 
@@ -46,6 +47,9 @@ namespace PokeCollector.Models
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<FavouritesList> FavouritesList { get; set; }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<UserShipmentInfo> UserShipmentInfo { get; set; }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<WishList> WishList { get; set; }

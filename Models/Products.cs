@@ -34,6 +34,11 @@ namespace PokeCollector.Models
 
         public string Image { get; set; }
 
+        [StringLength(2)]
+        public string Disponibilita { get; set; }
+
+        public string Descrizione { get; set; }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Orders> Orders { get; set; }
 

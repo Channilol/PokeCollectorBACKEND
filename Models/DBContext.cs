@@ -18,6 +18,7 @@ namespace PokeCollector.Models
         public virtual DbSet<ProductCategories> ProductCategories { get; set; }
         public virtual DbSet<Products> Products { get; set; }
         public virtual DbSet<Users> Users { get; set; }
+        public virtual DbSet<UserShipmentInfo> UserShipmentInfo { get; set; }
         public virtual DbSet<WishList> WishList { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
@@ -49,6 +50,11 @@ namespace PokeCollector.Models
 
             modelBuilder.Entity<Users>()
                 .HasMany(e => e.FavouritesList)
+                .WithRequired(e => e.Users)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<Users>()
+                .HasMany(e => e.UserShipmentInfo)
                 .WithRequired(e => e.Users)
                 .WillCascadeOnDelete(false);
 

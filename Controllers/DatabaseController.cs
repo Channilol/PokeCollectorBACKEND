@@ -49,6 +49,8 @@ namespace PokeCollector.Controllers
                         var newCart = new Cart();
                         newCart.UserId = user.UserId;
                         newCart.State = "NON ORDINATO";
+                        newCart.TotalPrice = 0;
+                        newCart.Date = DateTime.Now;
                         db.Cart.Add(newCart);
                         db.SaveChanges();
                     }
@@ -88,6 +90,8 @@ namespace PokeCollector.Controllers
                         var newCart = new Cart();
                         newCart.UserId = user.UserId;
                         newCart.State = "NON ORDINATO";
+                        newCart.TotalPrice = 0;
+                        newCart.Date = DateTime.Now;
                         db.Cart.Add(newCart);
                         db.SaveChanges();
                     }
@@ -127,6 +131,56 @@ namespace PokeCollector.Controllers
             }
         }
 
+        // MANAGEMENT USER SHIPPING INFO
+
+        [HttpPost]
+        public ActionResult CreateShipmentInfo(UserShipmentInfo shipmentInfo)
+        {
+            if (shipmentInfo != null)
+            {
+                if (ModelState.IsValid)
+                {
+                    db.UserShipmentInfo.Add(shipmentInfo);
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "Informazioni utente registrate con successo");
+                }
+                else
+                {
+                    return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel model state");
+                }
+            }
+            else
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Dati per la registrazione mancanti");
+            }
+        }
+
+        public ActionResult CheckShipmentInfo(int userId)
+        {
+            if (userId > 0)
+            {
+                var shipmentInfo = db.UserShipmentInfo.Where(u => u.UserId == userId && u.IsActive == "SI").OrderByDescending(u => u.ShipmentId).Select(u => new
+                {
+                    ShipmentId = u.ShipmentId,
+                    UserId = u.UserId,
+                    Address = u.Address,
+                    ZipCode = u.ZipCode,
+                    City = u.City,
+                    Province = u.Province,
+                    CardNumber = u.CardNumber,
+                    CardExpiringDate = u.CardExpiringDate,
+                    CardCCV = u.CardCCV,
+                    IsActive = u.IsActive,
+                }).FirstOrDefault();
+                if (shipmentInfo != null)
+                {
+                    return Json(shipmentInfo, JsonRequestBehavior.AllowGet);
+                }
+                return null;
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "IdUser non esiste");
+        }
+
         // MANAGEMERT CARRELLO
 
         public ActionResult CheckCart(int userId)
@@ -137,8 +191,10 @@ namespace PokeCollector.Controllers
                 {
                     CartId = c.CartId,
                     UserId = c.UserId,
-                    State = c.State
-                }).FirstOrDefault();
+                    State = c.State,
+                    TotalPrice = c.TotalPrice,
+                    Date = c.Date,
+            }).FirstOrDefault();
                 return Json(checkCart, JsonRequestBehavior.AllowGet);
             }
             else
@@ -155,7 +211,9 @@ namespace PokeCollector.Controllers
                 {
                     CartId = c.CartId,
                     UserId = c.UserId,
-                    State = c.State
+                    State = c.State,
+                    TotalPrice = c.TotalPrice,
+                    Date = c.Date,
                 }).FirstOrDefault();
                 if (cart != null)
                 {
@@ -173,6 +231,7 @@ namespace PokeCollector.Controllers
                             PricePerUnit = p.PricePerUnit,
                             Language = p.Language,
                             Image = p.Image,
+                            Descrizione = p.Descrizione,
                         }).Where(or => or.CartId == cart.CartId).ToList();
                     return Json(cartItems, JsonRequestBehavior.AllowGet);
                 }
@@ -209,6 +268,69 @@ namespace PokeCollector.Controllers
             }
         }
 
+        [HttpPut]
+        public ActionResult ChangeCart(Cart cart)
+        {
+            var existingCart = db.Cart.Where(c => c.CartId == cart.CartId).FirstOrDefault();
+            if (existingCart != null)
+            {
+                existingCart.State = cart.State;
+                existingCart.TotalPrice = cart.TotalPrice;
+                existingCart.Date = DateTime.Now;
+
+                try
+                {
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "Ordine aggiornato con successo");
+                }
+                catch (Exception ex)
+                {
+                    return new HttpStatusCodeResult(HttpStatusCode.InternalServerError, $"Errore durante il salvataggio delle modifiche: {ex.Message}");
+                }
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Il carrello non esiste");
+        }
+
+        [HttpGet]
+        public ActionResult GetUserCarts(int userId)
+        {
+            if (userId > 0)
+            {
+                var userCarts = db.Cart.Where(c => c.UserId == userId).Select(c => new
+                {
+                    CartId = c.CartId,
+                    UserId = c.UserId,
+                    State = c.State,
+                    TotalPrice = c.TotalPrice,
+                    Date = c.Date,
+                }).ToList();
+                if(userCarts.Count > 0)
+                {
+                    return Json(userCarts, JsonRequestBehavior.AllowGet);
+                }
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Questo user non ha ordini");
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Questo user non esiste");
+        }
+
+        [HttpGet]
+        public ActionResult GetAllCarts()
+        {
+            var CartsToSend = db.Cart.Select(c => new
+            {
+                CartId = c.CartId,
+                UserId = c.UserId,
+                State = c.State,
+                TotalPrice = c.TotalPrice,
+                Date = c.Date,
+            }).ToList();
+            if(CartsToSend.Any())
+            {
+                return Json(CartsToSend, JsonRequestBehavior.AllowGet);
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non ci sono ordini");
+        }
+
         // MANAGEMENT ORDINI
 
         [HttpPost]
@@ -216,6 +338,21 @@ namespace PokeCollector.Controllers
         {
             if (order != null)
             {
+                var product = db.Products.Where(p => p.ProductId == order.ProductId).Select(p => new
+                {
+                    ProductId = p.ProductId,
+                    Name = p.Name,
+                    PricePerUnit = p.PricePerUnit,
+                    CategoryId = p.CategoryId,
+                    Discount = p.Discount,
+                    Language = p.Language,
+                    Image = p.Image,
+                    Disponibilita = p.Disponibilita,
+                    Descrizione = p.Descrizione
+                }).FirstOrDefault();
+
+                var discountedPrice = Math.Round((product.PricePerUnit - ((product.PricePerUnit * product.Discount) / 100)) * 100) / 100;
+
                 if (ModelState.IsValid)
                 {
                     var cartItems = db.Orders.Select(o => new
@@ -233,12 +370,13 @@ namespace PokeCollector.Controllers
                         var existingOrder = db.Orders.Where(o => o.ProductId == order.ProductId).FirstOrDefault();
 
                         existingOrder.Quantity = order.Quantity;
-                        existingOrder.Price = order.Price;
+                        existingOrder.Price = discountedPrice * order.Quantity;
 
                         db.SaveChanges();
                     }
                     else
                     {
+                        order.Price = discountedPrice * order.Quantity;
                         db.Orders.Add(order);
                         db.SaveChanges();
                     }
@@ -293,6 +431,8 @@ namespace PokeCollector.Controllers
                                       Language = p.Language,
                                       Image = p.Image,
                                       Type = c.Type,
+                                      Disponibilita = p.Disponibilita,
+                                      Descrizione = p.Descrizione
                                   })
                             .Where(p => p.PricePerUnit > 0)
                             .ToList();
@@ -311,7 +451,9 @@ namespace PokeCollector.Controllers
                     CategoryId = p.CategoryId,
                     Discount = p.Discount,
                     Language = p.Language,
-                    Image = p.Image
+                    Image = p.Image,
+                    Disponibilita = p.Disponibilita,
+                    Descrizione = p.Descrizione
                 }).FirstOrDefault();
                 return Json(product, JsonRequestBehavior.AllowGet);
             }
@@ -337,6 +479,8 @@ namespace PokeCollector.Controllers
                           Language = p.Language,
                           Image = p.Image,
                           Type = c.Type,
+                          Disponibilita = p.Disponibilita,
+                          Descrizione = p.Descrizione,
                       })
                 .OrderByDescending(p => p.ProductId)
                 .Where(p => p.PricePerUnit > 0)
@@ -376,6 +520,8 @@ namespace PokeCollector.Controllers
             public int Discount { get; set; }
             public string Language { get; set; }
             public string Image { get; set; }
+            public string Disponibilita { get; set; }
+            public string Descrizione { get; set; }
         }
 
         [HttpPut]
@@ -395,6 +541,8 @@ namespace PokeCollector.Controllers
                         existingProduct.Discount = product.Discount;
                         existingProduct.Language = product.Language;
                         existingProduct.Image = product.Image;
+                        existingProduct.Disponibilita = product.Disponibilita;
+                        existingProduct.Descrizione = product.Descrizione;
 
                         db.SaveChanges();
 
@@ -407,6 +555,8 @@ namespace PokeCollector.Controllers
                             Discount = existingProduct.Discount,
                             Language = existingProduct.Language,
                             Image = existingProduct.Image,
+                            Disponibilita = existingProduct.Disponibilita,
+                            Descrizione = existingProduct.Descrizione,
                         };
 
                         return Json(modifiedProductDTO, JsonRequestBehavior.AllowGet);

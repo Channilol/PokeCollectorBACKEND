@@ -196,6 +196,7 @@
     <Compile Include="Models\ProductCategories.cs" />
     <Compile Include="Models\Products.cs" />
     <Compile Include="Models\Users.cs" />
+    <Compile Include="Models\UserShipmentInfo.cs" />
     <Compile Include="Models\WishList.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
