@@ -417,6 +417,92 @@ namespace PokeCollector.Controllers
             return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non ci sono ordini");
         }
 
+        public ActionResult SeeCartOrders(int cartId)
+        {
+            if (cartId > 0)
+            {
+                var cart = db.Cart.Where(c => c.CartId == cartId).FirstOrDefault();
+                if (cart != null)
+                {
+                    var orders = db.Orders.Join(db.Products,
+                                  o => o.ProductId,
+                                  p => p.ProductId,
+                                  (o, p) => new
+                                  {
+                                      OrderId = o.OrderId,
+                                      Quantity = o.Quantity,
+                                      Price = o.Price,
+                                      CartId = o.CartId,
+                                      ProductId = p.ProductId,
+                                      Name = p.Name,
+                                      PricePerUnit = p.PricePerUnit,
+                                      CategoryId = p.CategoryId,
+                                      Discount = p.Discount,
+                                      Language = p.Language,
+                                      Image = p.Image,
+                                      Disponibilita = p.Disponibilita,
+                                      Descrizione = p.Descrizione
+                                  })
+                        .Where(o => o.CartId == cartId).ToList();
+                    if (orders.Any())
+                    {
+                        return Json(orders, JsonRequestBehavior.AllowGet);
+                    }
+                    return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non ci sono ordini");
+                }
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Carrello vuoto");
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Id carrello non valido");
+        }
+
+        [HttpPut]
+        public ActionResult EditCart(Cart cart)
+        {
+            if(cart != null)
+            {
+                if (ModelState.IsValid)
+                {
+                    var existingCart = db.Cart.Where(c => c.CartId == cart.CartId).FirstOrDefault();
+
+                    if (existingCart != null)
+                    {
+                        existingCart.State = cart.State;
+                        existingCart.Date = DateTime.Now;
+
+                        db.SaveChanges();
+                    }
+                    else
+                    {
+                        return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non esiste questo carrello nel database");
+                    }
+                }
+                else
+                {
+                    return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel model state");
+                }
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel body della fetch");
+        }
+
+        [HttpDelete]
+        public ActionResult DeleteCart(int cartId)
+        {
+            if (cartId > 0)
+            {
+                var existingCart = db.Cart.Where(c => c.CartId == cartId).FirstOrDefault();
+
+                if (existingCart != null )
+                {
+                    db.Cart.Remove(existingCart);
+                    db.SaveChanges();
+
+                    return Json(0, JsonRequestBehavior.AllowGet);
+                }
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Non esiste questo carrello nel database");
+            }
+            return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Errore nel cartId");
+        }
+
         // MANAGEMENT ORDINI
 
         [HttpPost]
